@@ -17,9 +17,18 @@ our $VERSION = '0.01';
 # Public Accessors
 #############################################################################
 
-has '+uri' => 
+has uri => 
 ( 
+  is      => 'rw', 
+  isa     => 'Str', 
   default => 'http://localhost:6800/jsonrpc',
+);
+
+has secret => 
+( 
+  is      => 'rw', 
+  isa     => 'Str',
+  trigger => \&_trigger_secret,
 );
 
 
@@ -34,8 +43,9 @@ has counter =>
   default  => 0,
 );
 
-has '+rpc' => 
+has rpc => 
 (
+  is         => 'rw', 
   isa        => 'JSON::RPC::Legacy::Client',
   lazy_build => 1,
 );
@@ -71,16 +81,11 @@ sub call
     $self->init;
   }
 
-  # Pass along the secret token
+  # Pass along the secret token if one exists
   if ( defined $self->secret )
   {
-    # If a secret value is configured, generate a secret token to include at the front of
-    # every rpc request
-    # See: http://aria2.sourceforge.net/manual/en/html/aria2c.html#rpc-auth
-    my $secret_token = sprintf "token:%s", $self->secret;
-
     # Add the secret token to the front of the parameters list
-    unshift @params, $secret_token;
+    unshift @params, $self->secret_token;
   }
 
   # Increment the request counter
@@ -140,5 +145,18 @@ sub _increment_counter
   return;
 }
 
+
+# Format the secret token
+sub _secret_token
+{
+  my ( $self ) = @_;
+
+  return if ! defined $self->secret;
+
+  # If a secret value is configured, generate a secret token to include at the front of
+  # every rpc request
+  # See: http://aria2.sourceforge.net/manual/en/html/aria2c.html#rpc-auth
+  return sprintf "token:%s", $self->secret;
+}
 
 1;
