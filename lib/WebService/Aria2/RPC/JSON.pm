@@ -97,7 +97,7 @@ sub call
   # Handle low level protocol errors
   if ( ! defined $response )
   {
-    warn "ERROR: %s\n", $self->rpc->status_line;
+    warn printf "ERROR: %s\n", $self->rpc->status_line;
     return;
   }
 
@@ -111,7 +111,7 @@ sub call
     $error = $error->{message} if ref $error;
 
     # Display error and bail
-    warn "ERROR: %s\n", $error;
+    warn printf "ERROR: %s\n", $error;
     return;
   }
 
