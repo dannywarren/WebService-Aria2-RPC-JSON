@@ -24,13 +24,6 @@ has uri =>
   default => 'http://localhost:6800/jsonrpc',
 );
 
-has secret => 
-( 
-  is      => 'rw', 
-  isa     => 'Str',
-  trigger => \&_trigger_secret,
-);
-
 
 #############################################################################
 # Private Accessors
@@ -145,18 +138,5 @@ sub _increment_counter
   return;
 }
 
-
-# Format the secret token
-sub _secret_token
-{
-  my ( $self ) = @_;
-
-  return if ! defined $self->secret;
-
-  # If a secret value is configured, generate a secret token to include at the front of
-  # every rpc request
-  # See: http://aria2.sourceforge.net/manual/en/html/aria2c.html#rpc-auth
-  return sprintf "token:%s", $self->secret;
-}
 
 1;
