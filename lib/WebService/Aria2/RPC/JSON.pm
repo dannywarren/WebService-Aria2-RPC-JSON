@@ -127,12 +127,10 @@ sub call
   # web server
   if ( defined $response && $response->is_error )
   {
-    my $content_type = $response->header('content-type');
-
     # Only handle http errors at this stage if the content type isn't json,
     # since if we got json back there might be something more interesting we
     # can show the user if the json object is parsable
-    if ( ! defined $content_type || ! grep { $response->header('content-type') eq $_ } values %{ $self->rpc->content_types } )
+    if ( ! $self->_is_jsonrpc( $response ) )
     {
       warn sprintf "%s", $response->status_line;
       return;      
@@ -178,6 +176,29 @@ sub _increment_counter
   $self->counter( $self->counter + 1 );
 
   return;
+}
+
+
+# Returns true if a response is jsonrpc
+sub _is_jsonrpc
+{
+  my ( $self, $response ) = @_;
+
+  # False if response is null
+  return 0 if ! defined $response;
+
+  # Grab the content type from the reponse
+  my $content_type = $response->header('content-type');
+
+  # False if no content-type header
+  return 0 if ! defined $content_type;
+
+  # True if content type is one of the ones our rpc instance says is valid
+  # jsonrpc
+  return 1 if grep { $content_type eq $_ } values %{ $self->rpc->content_types };
+
+  # Otherwise, false
+  return 0;
 }
 
 
