@@ -122,21 +122,41 @@ sub call
   # Post the request to the server
   my $response = $self->ua->request( $request );
 
-  # Handle any http errors
-  if ( $response->is_error )
+  # Handle any http errors early so that we don't have to bother with
+  # processing any json-rpc stuff if the something is wrong with the
+  # web server
+  if ( defined $response && $response->is_error )
   {
-    warn sprintf "ERROR: %s\n", $response->status_line;
-    return;
+    my $content_type = $response->header('content-type');
+
+    # Only handle http errors at this stage if the content type isn't json,
+    # since if we got json back there might be something more interesting we
+    # can show the user if the json object is parsable
+    if ( ! defined $content_type || ! grep { $response->header('content-type') eq $_ } values %{ $self->rpc->content_types } )
+    {
+      warn sprintf "%s", $response->status_line;
+      return;      
+    }
   }
 
   # Parse the response to json data
   my $json_result = $self->rpc->response_to_result( $response );
 
   # Handle errors returned from rpc processing
-  if ( defined $json_result->{error} )
+  if ( defined $json_result && defined $json_result->{error} )
   {
     # Display error and bail
-    warn sprintf "ERROR: %s\n", $json_result->{error};
+    warn sprintf "%s %s", 
+      $json_result->{error}->{code},
+      $json_result->{error}->{message},
+    ;
+    return;
+  }
+
+  # Handle any remaining uncaught http errors
+  if ( defined $response && $response->is_error )
+  {
+    warn sprintf "%s", $response->status_line;
     return;
   }
 
