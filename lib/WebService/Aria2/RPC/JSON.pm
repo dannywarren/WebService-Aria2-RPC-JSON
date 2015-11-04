@@ -27,6 +27,20 @@ has uri =>
   default => 'http://localhost:6800/jsonrpc',
 );
 
+has name =>
+(
+  is      => 'rw',
+  isa     => 'Str',
+  default => sub{ sprintf "%s/%s", __PACKAGE__, $VERSION }, 
+);
+
+has timeout =>
+(
+  is      => 'rw',
+  isa     => 'Int',
+  default => 10,
+);
+
 
 #############################################################################
 # Private Accessors
@@ -73,7 +87,11 @@ sub _build_ua
 {
   my ( $self ) = @_;
 
-  my $ua = LWP::UserAgent->new();
+  my $ua = LWP::UserAgent->new
+  (
+    agent   => $self->name,
+    timeout => $self->timeout,
+  );
 
   return $ua;
 }
