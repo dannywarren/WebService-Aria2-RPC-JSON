@@ -3,7 +3,10 @@ package WebService::Aria2::RPC::JSON;
 use Moose;
 extends 'WebService::Aria2::RPC';
 
-use JSON::RPC::Legacy::Client;
+use JSON::RPC::Common;
+use JSON::RPC::Common::Marshal::HTTP;
+use LWP::UserAgent;
+use URI;
 
 
 #############################################################################
@@ -39,7 +42,14 @@ has counter =>
 has rpc => 
 (
   is         => 'rw', 
-  isa        => 'JSON::RPC::Legacy::Client',
+  isa        => 'JSON::RPC::Common::Marshal::HTTP',
+  lazy_build => 1,
+);
+
+has ua => 
+(
+  is         => 'rw', 
+  isa        => 'LWP::UserAgent',
   lazy_build => 1,
 );
 
@@ -53,9 +63,19 @@ sub _build_rpc
 {
   my ( $self ) = @_;
 
-  my $rpc = JSON::RPC::Legacy::Client->new();
+  my $rpc = JSON::RPC::Common::Marshal::HTTP->new();
 
   return $rpc;
+}
+
+# Initialize the lwp ua instance
+sub _build_ua 
+{
+  my ( $self ) = @_;
+
+  my $ua = LWP::UserAgent->new();
+
+  return $ua;
 }
 
 
@@ -84,39 +104,44 @@ sub call
   # Increment the request counter
   $self->_increment_counter;
 
-  # Make the json-rpc call
-  my $response = $self->rpc->call
+  # Create a json-rpc call from our request info
+  my $json_request = JSON::RPC::Common::Procedure::Call->inflate
+  ({
+    id     => $self->counter,
+    method => $method,
+    params => \@params,
+  });
+
+  # Create an http request object out of the json-rpc call
+  my $request = $self->rpc->call_to_request
   (
-    $self->uri,
-    {
-      method => $method,
-      params => \@params,
-    },
+    $json_request,
+    uri => URI->new( $self->uri ),
   );
 
-  # Handle low level protocol errors
-  if ( ! defined $response )
-  {
-    warn printf "ERROR: %s\n", $self->rpc->status_line;
-    return;
-  }
+  # Post the request to the server
+  my $response = $self->ua->request( $request );
 
-  # Handle errors returned from aria2
+  # Handle any http errors
   if ( $response->is_error )
   {
-    # Grab the error string
-    my $error = $response->error_message;
-
-    # If the error string is an object, we need to grab the message from it
-    $error = $error->{message} if ref $error;
-
-    # Display error and bail
-    warn printf "ERROR: %s\n", $error;
+    warn sprintf "ERROR: %s\n", $response->status_line;
     return;
   }
 
-  # Otherwise, return the result
-  return $response->result;
+  # Parse the response to json data
+  my $json_result = $self->rpc->response_to_result( $response );
+
+  # Handle errors returned from rpc processing
+  if ( defined $json_result->{error} )
+  {
+    # Display error and bail
+    warn sprintf "ERROR: %s\n", $json_result->{error};
+    return;
+  }
+
+  # Finally, return the json result data
+  return $json_result->result;
 }
 
 
@@ -131,9 +156,6 @@ sub _increment_counter
 
   # Bump the counter
   $self->counter( $self->counter + 1 );
-
-  # Use the counter as the next rpc request id
-  $self->rpc->id( $self->counter );
 
   return;
 }

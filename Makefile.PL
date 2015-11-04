@@ -16,9 +16,11 @@ WriteMakefile
 
   PREREQ_PM =>
   {
-    'JSON::RPC'              => "1.06",
-    'Moose'                  => "2.1603",
     'WebService::Aria2::RPC' => "0.01",
+    'JSON::RPC::Common'      => "0.11",
+    'Moose'                  => "2.1603",
+    'URI'                    => "1.67",
+    'LWP'                    => '6.13',
   },
 
   TEST_REQUIRES => 
